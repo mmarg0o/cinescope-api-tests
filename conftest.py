@@ -3,6 +3,7 @@ import pytest
 from clients.api_manager import ApiManager
 from data.auth.register_data import get_register_payload 
 from config.credentials import SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD
+from data.movies.movie_data import get_movie_payload
 
 @pytest.fixture(scope="function") #поменяла scope на function, потому что при class одна сессия переиспользовалась между тестами из-за чего переносилась авторизация и тесты влияли друг на друга
 def session():
@@ -46,3 +47,15 @@ def super_admin_api_manager():
     api.auth_api.authenticate((SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD))
     yield api
     admin_session.close()
+
+
+@pytest.fixture(scope="function")
+def created_movie(super_admin_api_manager):
+    movie = get_movie_payload()
+    response = super_admin_api_manager.movies_api.create_movie(movie).json()
+    movie["id"] = response["id"]
+    yield movie
+    try:
+        super_admin_api_manager.movies_api.delete_movie(movie["id"])
+    except ValueError:
+        pass   #сделала обработку ошибок потому что фикстура конфликтовала с тестом на удаление фильма

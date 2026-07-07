@@ -1,6 +1,7 @@
 from faker import Faker 
 import random
 import string
+import uuid
 
 fake = Faker()
 
@@ -22,3 +23,19 @@ class DataGenerator:
     @staticmethod
     def generate_random_email():
         return fake.email()
+    
+    @staticmethod
+    def generate_random_movie_name(): #добавила uuid потому что faker генерит имена из ограниченного набора слов и из за этого иногда тесты падают с 409
+        return f"{fake.sentence(nb_words=3)} {uuid.uuid4().hex[:8]}"
+    
+    @staticmethod
+    def generate_random_image_url():
+        return fake.image_url()
+    
+    @staticmethod
+    def generate_random_price():
+        return fake.random_int(min=100, max=1000)
+
+    @staticmethod
+    def generate_random_description():
+        return fake.sentence()
