@@ -6,15 +6,18 @@ class TestMovies:
         response_data = response.json()
 
         assert isinstance(response_data["movies"], list)
-        assert "count" in response_data
-        assert "page" in response_data
-        assert "pageSize" in response_data
-        assert "pageCount" in response_data
+        assert isinstance(response_data["count"], int)
+        assert isinstance(response_data["page"], int)
+        assert isinstance(response_data["pageSize"], int)
+        assert isinstance(response_data["pageCount"], int)
 
     def test_get_movies_filter_by_genre(self, api_manager, created_movie):
-        response = api_manager.movies_api.get_movies(params={"genreId": created_movie["genreId"]})
-        response_data = response.json()
+        get_response = api_manager.movies_api.get_movie(created_movie["id"])
+        assert get_response.json()["genreId"] == created_movie["genreId"]
 
+        response = api_manager.movies_api.get_movies(params={"genreId": created_movie["genreId"], "pageSize": 20}) #pageSize=20 максимальный,но фильм всё равно может не попасть в список
+    #потому что на стенде больше 1000 фильмов с таким жанром
+        response_data = response.json()
         assert len(response_data["movies"]) > 0
         assert all(movie["genreId"] == created_movie["genreId"] for movie in response_data["movies"])
 
@@ -41,6 +44,10 @@ class TestMovies:
 
         assert response["id"] == created_movie["id"]
         assert response["name"] == updated_movie["name"]
+
+        get_response = super_admin_api_manager.movies_api.get_movie(created_movie["id"]).json()
+        assert get_response["id"] == created_movie["id"]
+        assert get_response["name"] == updated_movie["name"]
 
     def test_update_movie_invalid_price(self, super_admin_api_manager, created_movie):
         super_admin_api_manager.movies_api.update_movie(
