@@ -4,6 +4,7 @@ from clients.api_manager import ApiManager
 from data.auth.register_data import get_register_payload 
 from config.credentials import SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD
 from data.movies.movie_data import get_movie_payload
+import uuid
 
 @pytest.fixture(scope="function") #поменяла scope на function, потому что при class одна сессия переиспользовалась между тестами из-за чего переносилась авторизация и тесты влияли друг на друга
 def session():
@@ -55,7 +56,25 @@ def created_movie(super_admin_api_manager):
     response = super_admin_api_manager.movies_api.create_movie(movie).json()
     movie["id"] = response["id"]
     yield movie
-    try:
-        super_admin_api_manager.movies_api.delete_movie(movie["id"])
-    except ValueError:
-        pass   #сделала обработку ошибок потому что фикстура конфликтовала с тестом на удаление фильма
+    super_admin_api_manager.movies_api.delete_movie(movie["id"])
+
+@pytest.fixture(scope="function")
+def filter_movie(super_admin_api_manager):
+    genre_data = {"name": f"Test genre {uuid.uuid4().hex[:8]}"}
+    genre = super_admin_api_manager.movies_api.create_genre(genre_data).json()
+
+    movie = get_movie_payload(genre_id=genre["id"])
+    response = super_admin_api_manager.movies_api.create_movie(movie).json()
+    movie["id"] = response["id"]
+
+    yield movie
+
+    super_admin_api_manager.movies_api.delete_movie(movie["id"])
+    super_admin_api_manager.movies_api.delete_genre(genre["id"])
+
+@pytest.fixture(scope="function")
+def movie_to_delete(super_admin_api_manager):
+    movie = get_movie_payload()
+    response = super_admin_api_manager.movies_api.create_movie(movie).json()
+    movie["id"] = response["id"]
+    return movie 
