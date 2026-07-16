@@ -11,27 +11,27 @@ class TestMovies:
         assert isinstance(response_data["pageSize"], int)
         assert isinstance(response_data["pageCount"], int)
 
-    def test_get_movies_filter_by_genre(self, api_manager, filter_movie):
-        response = api_manager.movies_api.get_movies(params={"genreId": filter_movie["genreId"]})
+    def test_get_movies_filter_by_genre(self, api_manager, created_movie):
+        response = api_manager.movies_api.get_movies(params={"genreId": created_movie["genreId"]})
         response_data = response.json()
 
         assert len(response_data["movies"]) > 0
-        assert all(movie["genreId"] == filter_movie["genreId"] for movie in response_data["movies"])
-        assert any(movie["id"] == filter_movie["id"] for movie in response_data["movies"])
+        assert all(movie["genreId"] == created_movie["genreId"] for movie in response_data["movies"])
+        assert any(movie["id"] == created_movie["id"] for movie in response_data["movies"])
     
-    def test_get_movies_filter_combination(self, api_manager, filter_movie):
+    def test_get_movies_filter_combination(self, api_manager, created_movie):
         response = api_manager.movies_api.get_movies(params={
-            "genreId": filter_movie["genreId"],
-            "location": filter_movie["location"]
+            "genreId": created_movie["genreId"],
+            "location": created_movie["location"]
         })
         response_data = response.json()
 
         assert len(response_data["movies"]) > 0
-        assert any(movie["id"] == filter_movie["id"] for movie in response_data["movies"])
+        assert any(movie["id"] == created_movie["id"] for movie in response_data["movies"])
 
-    def test_get_movies_filter_by_price_range(self, api_manager, filter_movie):
-        min_price = filter_movie["price"] - 10
-        max_price = filter_movie["price"] + 10
+    def test_get_movies_filter_by_price_range(self, api_manager, created_movie):
+        min_price = created_movie["price"] - 10
+        max_price = created_movie["price"] + 10
 
         response = api_manager.movies_api.get_movies(params={
             "minPrice": min_price,
@@ -46,6 +46,7 @@ class TestMovies:
         response = api_manager.movies_api.get_movies(params = {"page": -1}, expected_status=400)
         response_data = response.json()
         assert "message" in response_data
+        assert "page" in response_data["message"][0]
 
     def test_get_movie(self, api_manager, created_movie):
         response = api_manager.movies_api.get_movie(created_movie["id"])
@@ -58,6 +59,7 @@ class TestMovies:
         response = api_manager.movies_api.get_movie(movie_id=99999, expected_status=404)
         response_data = response.json()
         assert "message" in response_data
+        assert "не найден" in response_data["message"]
 
     def test_create_movie(self, super_admin_api_manager):
         movie = get_movie_payload()
@@ -84,6 +86,7 @@ class TestMovies:
         )
         response_data = response.json()
         assert "message" in response_data
+        assert response_data["message"] == "Unauthorized"
 
     def test_create_movie_with_existing_name(self, super_admin_api_manager, created_movie):
         duplicate_movie = get_movie_payload()
@@ -95,6 +98,7 @@ class TestMovies:
         )
         response_data = response.json()
         assert "message" in response_data
+        assert "уже существует" in response_data["message"]
 
     def test_update_movie(self, super_admin_api_manager, created_movie):
         updated_movie = get_movie_payload()
@@ -119,6 +123,7 @@ class TestMovies:
             )
         response_data = response.json()
         assert "message" in response_data
+        assert "price" in response_data["message"][0]
 
     def test_update_movie_not_found(self, super_admin_api_manager):
         response = super_admin_api_manager.movies_api.update_movie(
@@ -128,6 +133,7 @@ class TestMovies:
             )
         response_data = response.json()
         assert "message" in response_data 
+        assert "не найден" in response_data["message"]
 
     def test_update_movie_unauthorized(self, api_manager, created_movie):
         response = api_manager.movies_api.update_movie(
@@ -137,12 +143,14 @@ class TestMovies:
         )
         response_data = response.json()
         assert "message" in response_data
+        assert response_data["message"] == "Unauthorized"
 
-    def test_delete_movie(self, super_admin_api_manager, movie_to_delete):
-        super_admin_api_manager.movies_api.delete_movie(movie_to_delete["id"], expected_status=200)
-        super_admin_api_manager.movies_api.get_movie(movie_to_delete["id"], expected_status=404)
+    def test_delete_movie(self, super_admin_api_manager, created_movie_for_delete):
+        super_admin_api_manager.movies_api.delete_movie(created_movie_for_delete["id"], expected_status=200)
+        super_admin_api_manager.movies_api.get_movie(created_movie_for_delete["id"], expected_status=404)
 
     def test_delete_movie_not_found(self, super_admin_api_manager):
         response = super_admin_api_manager.movies_api.delete_movie(movie_id=99999, expected_status=404)
         response_data = response.json()
         assert "message" in response_data
+        assert "не найден" in response_data["message"]

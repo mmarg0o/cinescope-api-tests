@@ -25,7 +25,7 @@ class DataGenerator:
         return fake.email()
     
     @staticmethod
-    def generate_random_movie_name(): #добавила uuid потому что faker генерит имена из ограниченного набора слов и из за этого иногда тесты падают с 409
+    def generate_random_movie_name():
         return f"{fake.sentence(nb_words=3)} {uuid.uuid4().hex[:8]}"
     
     @staticmethod
