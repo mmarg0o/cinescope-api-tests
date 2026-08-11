@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from constants.roles import Roles
-import datetime
+from datetime import datetime
 
 
 class TestUser(BaseModel):
@@ -41,6 +41,9 @@ class RegisterUserResponse(BaseModel):
             raise ValueError(BaseModel)("Некорректный формат даты и времени. Ожидается формат ISO 8601.")
         return value
 
+class Genre(BaseModel):
+    name: str
+
 class Movies(BaseModel):
     id: int
     name: str
@@ -50,11 +53,19 @@ class Movies(BaseModel):
     location: str
     published: bool
     genreId: int
-    createdAt: Optional[str] = None
-    rating: Optional[int] = None
+    createdAt: datetime
+    rating: float
+    genre: Genre
 
     @field_validator("price")
     def price_must_be_positive(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("Цена должна быть больше 0")
         return value
+
+class MoviesListResponse(BaseModel):
+    movies: List[Movies]
+    count: int
+    page: int
+    pageSize: int
+    pageCount: int

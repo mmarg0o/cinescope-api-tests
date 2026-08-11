@@ -6,38 +6,42 @@ class MoviesApi(CustomRequester):
         super().__init__(session=session, base_url=MOVIES_BASE_URL)
         self.url = '/movies'
 
-    def get_movies(self, params=None, expected_status=200, **kwargs):
+    def get_movies(self, params=None, expected_status=200, expected_schema=None, **kwargs):
         return self.send_request(
             method="GET",
             endpoint=self.url,
             params=params,
             expected_status=expected_status,
+            expected_schema=expected_schema,
             **kwargs
         )
     
-    def get_movie(self, movie_id, expected_status=200, **kwargs):
+    def get_movie(self, movie_id, expected_status=200, expected_schema=None, **kwargs):
         return self.send_request(
             method="GET",
             endpoint=f"{self.url}/{movie_id}",
             expected_status=expected_status,
+            expected_schema=expected_schema,
             **kwargs
         )
   
-    def create_movie(self, movie_data, expected_status=201, **kwargs):
+    def create_movie(self, movie_data, expected_status=201, expected_schema=None, **kwargs):
         return self.send_request(
             method="POST",
             endpoint=self.url,
             data=movie_data,
             expected_status=expected_status,
+            expected_schema=expected_schema,
             **kwargs  
         )
     
-    def update_movie(self, movie_id, movie_data, expected_status=200, **kwargs):
+    def update_movie(self, movie_id, movie_data, expected_status=200, expected_schema=None, **kwargs):
         return self.send_request(
             method="PATCH",
             endpoint=f"{self.url}/{movie_id}",
             data=movie_data,
             expected_status=expected_status,
+            expected_schema=expected_schema,
             **kwargs
         )
     

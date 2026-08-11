@@ -3,7 +3,7 @@ import pytest
 import uuid
 from datetime import datetime
 from db_models.movies import MovieDBModel
-from models.base_models import Movies
+from models.base_models import Movies, MoviesListResponse
 import allure
 
 @allure.epic("Cinescope")
@@ -12,9 +12,9 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Получение фильмов")
-    def test_get_movies(self, api_manager):
+    def test_get_movies(self, api_manager, created_movie, db_helper):
         with allure.step("Запрос на получение фильмов"):
-            response = api_manager.movies_api.get_movies()
+            response = api_manager.movies_api.get_movies(expected_schema=MoviesListResponse)
             response_data = response.json()
 
         with allure.step("Проверка структуры ответа"):
@@ -24,22 +24,12 @@ class TestMovies:
             assert isinstance(response_data["pageSize"], int)
             assert isinstance(response_data["pageCount"], int)
 
-    @allure.story("Валидация схемы ответа")
-    def test_movies_response_schema(self, api_manager):
-        with allure.step("Запрос на получение фильмов"):
-            response = api_manager.movies_api.get_movies()
-            response_data = response.json()
-
-        with allure.step("Валидация схемы ответа через Pydantic модель"):
-            for movie in response_data["movies"]:
-                Movies(**movie)
-
     @allure.story("Фильтрация фильмов")
     @pytest.mark.parametrize(
     "movie_with_unique_genre",
     [{"genre": "Comedy"}, {"genre": "Drama"}],
     indirect=True)
-    def test_get_movies_by_filters(self, api_manager, movie_with_unique_genre):
+    def test_get_movies_by_filters(self, api_manager, movie_with_unique_genre, db_helper):
         with allure.step("Запрос фильмов с фильтрами"):
             response = api_manager.movies_api.get_movies(
                 params={
@@ -47,12 +37,28 @@ class TestMovies:
                     "location": movie_with_unique_genre["location"],
                     "minPrice": movie_with_unique_genre["price"] - 10,
                     "maxPrice": movie_with_unique_genre["price"] + 10
-                }
+                },
+                expected_schema=MoviesListResponse
             )
             movies = response.json()["movies"]
 
         with allure.step("Проверка, что созданный фильм есть в результатах фильтрации"):
             assert any(movie["id"] == movie_with_unique_genre["id"] for movie in movies)
+
+        with allure.step("Проверка, что созданный фильм есть в результатах фильтрации"):
+            found_movie = None
+            for movie in movies:
+                if movie["id"] == movie_with_unique_genre["id"]:
+                    found_movie = movie
+
+            assert found_movie is not None
+
+        with allure.step("Проверка соответствия данных из ответа API данным из бд"):
+            movie_in_db = db_helper.get_movie_by_id(movie_with_unique_genre["id"])
+            assert found_movie["id"] == movie_in_db.id
+            assert found_movie["name"] == movie_in_db.name
+            assert found_movie["price"] == movie_in_db.price
+            assert found_movie["location"] == movie_in_db.location
 
     @allure.story("Валидация страницы")
     def test_get_movies_invalid_page(self, api_manager):
@@ -65,15 +71,24 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Получение фильма")
-    def test_get_movie(self, api_manager, created_movie):
+    def test_get_movie(self, api_manager, created_movie, db_helper):
 
         with allure.step("Запрос на получение фильма"):
-            response = api_manager.movies_api.get_movie(created_movie["id"])
+            response = api_manager.movies_api.get_movie(created_movie["id"], expected_schema=Movies)
             response_data = response.json()
 
         with allure.step("Проверка данных фильма"):
             assert response_data["id"] == created_movie["id"]
             assert response_data["name"] == created_movie["name"]
+
+        with allure.step("Проверка соответствия данных из ответа API данным из бд"):
+                    movie_in_db = db_helper.get_movie_by_id(response_data["id"])
+                    assert movie_in_db is not None
+                    assert movie_in_db.id == response_data["id"]
+                    assert movie_in_db.name == response_data["name"]
+                    assert movie_in_db.price == response_data["price"]
+                    assert movie_in_db.genre_id == response_data["genreId"]
+                    assert movie_in_db.location == response_data["location"]
 
     @allure.story("Получение фильма")
     def test_get_movie_not_found(self, api_manager):
@@ -87,11 +102,11 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Создание фильма")
-    def test_create_movie(self, super_admin, unique_genre):
+    def test_create_movie(self, super_admin, unique_genre, db_helper):
         movie = get_movie_payload(genre_id=unique_genre["id"])
 
         with allure.step("Запрос на создание фильма"):
-            response = super_admin.api.movies_api.create_movie(movie).json()
+            response = super_admin.api.movies_api.create_movie(movie, expected_schema=Movies).json()
 
         with allure.step("Проверка созданных полей"):
             assert response["name"] == movie["name"]
@@ -101,6 +116,15 @@ class TestMovies:
             assert response["imageUrl"] == movie["imageUrl"]
             assert response["published"] == movie["published"]
             assert response["genreId"] == movie["genreId"]
+
+        with allure.step("Проверка соответствия данных из ответа API данным из бд"):
+            movie_in_db = db_helper.get_movie_by_id(response["id"])
+            assert movie_in_db is not None
+            assert movie_in_db.id == response["id"]
+            assert movie_in_db.name == response["name"]
+            assert movie_in_db.price == response["price"]
+            assert movie_in_db.genre_id == response["genreId"]
+            assert movie_in_db.location == response["location"]
 
         with allure.step("Проверка созданного фильма"):
             get_response = super_admin.api.movies_api.get_movie(response["id"]).json()
@@ -147,18 +171,28 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Обновление фильма")
-    def test_update_movie(self, super_admin, created_movie, unique_genre):
+    def test_update_movie(self, super_admin, created_movie, unique_genre, db_helper):
         updated_movie = get_movie_payload(genre_id=unique_genre["id"])
 
         with allure.step("Запрос на обновление фильма"):
             response = super_admin.api.movies_api.update_movie(
                 created_movie["id"],
-                updated_movie
+                updated_movie,
+                expected_schema=Movies
             ).json()
 
         with allure.step("Проверка обновленных полей"):
             assert response["id"] == created_movie["id"]
             assert response["name"] == updated_movie["name"]
+
+        with allure.step("Проверка соответствия данных из ответа API данным из бд"):
+            movie_in_db = db_helper.get_movie_by_id(response["id"])
+            assert movie_in_db is not None
+            assert movie_in_db.id == response["id"]
+            assert movie_in_db.name == response["name"]
+            assert movie_in_db.price == response["price"]
+            assert movie_in_db.genre_id == response["genreId"]
+            assert movie_in_db.location == response["location"]
 
         with allure.step("Проверка обновления"):
             get_response = super_admin.api.movies_api.get_movie(created_movie["id"]).json()
@@ -206,11 +240,16 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Удаление фильма")
-    def test_delete_movie(self, super_admin, created_movie): 
+    @pytest.mark.parametrize("created_movie", [False], indirect=True)
+    def test_delete_movie(self, super_admin, created_movie, db_helper): 
         with allure.step("Запрос на удаление фильма"):
             super_admin.api.movies_api.delete_movie(created_movie["id"], expected_status=200)
         with allure.step("Проверка что фильм удален"):
             super_admin.api.movies_api.get_movie(created_movie["id"], expected_status=404)
+
+        with allure.step("Проверка что фильм удален из бд"): 
+            deleted_movie_in_db = db_helper.get_movie_by_id(created_movie["id"])
+            assert deleted_movie_in_db is None
 
     @allure.story("Удаление фильма")
     def test_delete_movie_not_found(self, super_admin):
@@ -227,6 +266,7 @@ class TestMovies:
         ("admin_user", 403),
         ("common_user", 403),
     ])
+    @pytest.mark.parametrize("created_movie", [False], indirect=True)
     def test_delete_movie_by_role(self, request, created_movie, user_fixture_name, expected_status):
         with allure.step(f"Удаление фильма пользователем {user_fixture_name}"):
            user = request.getfixturevalue(user_fixture_name)
@@ -257,7 +297,7 @@ class TestMoviesDB:
 
     @pytest.mark.db
     @allure.story("Удаление фильма из бд")
-    def test_delete_movie_in_db(self, super_admin, db_session, db_helper):
+    def test_delete_movie_in_db(self, super_admin, db_session, db_helper, unique_genre):
         with allure.step("Создание тестового фильма напрямую в БД"):
             test_movie = MovieDBModel(
                 name=f"Test movie for delete {uuid.uuid4()}",
@@ -267,7 +307,7 @@ class TestMoviesDB:
                 location="MSK",
                 published=True,
                 rating=0,
-                genre_id=7,
+                genre_id=unique_genre["id"],
                 created_at=datetime.now()
             )
             db_session.add(test_movie)

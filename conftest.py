@@ -138,14 +138,19 @@ def unique_genre(super_admin):
 
 
 @pytest.fixture
-def created_movie(super_admin, unique_genre):
+def created_movie(request, super_admin, unique_genre):
+
+    should_delete = getattr(request, "param", True)
+
     movie = get_movie_payload(genre_id=unique_genre["id"])
     response = super_admin.api.movies_api.create_movie(movie).json()
     movie["id"] = response["id"]
     yield movie
-    check = super_admin.api.movies_api.get_movie(movie["id"], expected_status=None)
-    if check.status_code == 200:
-        super_admin.api.movies_api.delete_movie(movie["id"])
+
+    if should_delete:
+        check = super_admin.api.movies_api.get_movie(movie["id"], expected_status=None)
+        if check.status_code == 200:
+            super_admin.api.movies_api.delete_movie(movie["id"])
 
 
 @pytest.fixture
