@@ -69,3 +69,8 @@ class MoviesListResponse(BaseModel):
     page: int
     pageSize: int
     pageCount: int
+
+class ErrorResponse(BaseModel):
+    message: str | list
+    error: Optional[str] = None
+    statusCode: int

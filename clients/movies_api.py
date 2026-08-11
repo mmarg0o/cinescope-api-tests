@@ -45,10 +45,11 @@ class MoviesApi(CustomRequester):
             **kwargs
         )
     
-    def delete_movie(self, movie_id, expected_status=200, **kwargs):
+    def delete_movie(self, movie_id, expected_status=200, expected_schema=None, **kwargs):
         return self.send_request(
             method="DELETE",
             endpoint=f"{self.url}/{movie_id}",
             expected_status=expected_status,
+            expected_schema=expected_schema,
             **kwargs
         )

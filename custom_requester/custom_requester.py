@@ -4,6 +4,7 @@ import os
 import time
 from pydantic import BaseModel
 from constants.colors import RED, GREEN, RESET
+from models.base_models import ErrorResponse
 
 class CustomRequester:
     base_headers = {
@@ -37,7 +38,10 @@ class CustomRequester:
             )
 
         if expected_schema is not None:
-            expected_schema(**response.json())
+            if 200 <= response.status_code < 300:
+                expected_schema(**response.json())
+            else:
+                ErrorResponse(**response.json())
         return response
 
     def _update_session_headers(self, headers: dict):
