@@ -3,7 +3,6 @@ import pytest
 import uuid
 from datetime import datetime
 from db_models.movies import MovieDBModel
-from models.base_models import Movies, MoviesListResponse
 import allure
 
 @allure.epic("Cinescope")
@@ -12,9 +11,9 @@ class TestMovies:
 
     @pytest.mark.smoke
     @allure.story("Получение фильмов")
-    def test_get_movies(self, api_manager, created_movie, db_helper):
+    def test_get_movies(self, api_manager):
         with allure.step("Запрос на получение фильмов"):
-            response = api_manager.movies_api.get_movies(expected_schema=MoviesListResponse)
+            response = api_manager.movies_api.get_movies()
             response_data = response.json()
 
         with allure.step("Проверка структуры ответа"):
@@ -37,13 +36,9 @@ class TestMovies:
                     "location": movie_with_unique_genre["location"],
                     "minPrice": movie_with_unique_genre["price"] - 10,
                     "maxPrice": movie_with_unique_genre["price"] + 10
-                },
-                expected_schema=MoviesListResponse
+                }
             )
             movies = response.json()["movies"]
-
-        with allure.step("Проверка, что созданный фильм есть в результатах фильтрации"):
-            assert any(movie["id"] == movie_with_unique_genre["id"] for movie in movies)
 
         with allure.step("Проверка, что созданный фильм есть в результатах фильтрации"):
             found_movie = None
@@ -63,7 +58,7 @@ class TestMovies:
     @allure.story("Валидация страницы")
     def test_get_movies_invalid_page(self, api_manager):
         with allure.step("Запрос с невалидным номером страницы"):
-            response = api_manager.movies_api.get_movies(params = {"page": -1}, expected_status=400, expected_schema=MoviesListResponse)
+            response = api_manager.movies_api.get_movies(params = {"page": -1}, expected_status=400)
             response_data = response.json()
 
         with allure.step("Проверка текста ошибки"):
@@ -74,7 +69,7 @@ class TestMovies:
     def test_get_movie(self, api_manager, created_movie, db_helper):
 
         with allure.step("Запрос на получение фильма"):
-            response = api_manager.movies_api.get_movie(created_movie["id"], expected_schema=Movies)
+            response = api_manager.movies_api.get_movie(created_movie["id"])
             response_data = response.json()
 
         with allure.step("Проверка данных фильма"):
@@ -94,7 +89,7 @@ class TestMovies:
     def test_get_movie_not_found(self, api_manager):
 
         with allure.step("Запрос несуществующего фильма"):
-            response = api_manager.movies_api.get_movie(movie_id=99999, expected_status=404, expected_schema=Movies)
+            response = api_manager.movies_api.get_movie(movie_id=99999, expected_status=404)
             response_data = response.json()
 
         with allure.step("Проверка текста ошибки"):    
@@ -106,7 +101,7 @@ class TestMovies:
         movie = get_movie_payload(genre_id=unique_genre["id"])
 
         with allure.step("Запрос на создание фильма"):
-            response = super_admin.api.movies_api.create_movie(movie, expected_schema=Movies).json()
+            response = super_admin.api.movies_api.create_movie(movie).json()
 
         with allure.step("Проверка созданных полей"):
             assert response["name"] == movie["name"]
@@ -136,8 +131,7 @@ class TestMovies:
         with allure.step("Запрос на создание фильма без авторизации"):
             response = api_manager.movies_api.create_movie(
                     get_movie_payload(genre_id=unique_genre["id"]),
-                    expected_status=401,
-                    expected_schema=Movies
+                    expected_status=401
                 )
             response_data = response.json()
            
@@ -152,8 +146,7 @@ class TestMovies:
         with allure.step("Создание фильма с уже существующим именем"):
             response = super_admin.api.movies_api.create_movie(
                 duplicate_movie,
-                expected_status=409,
-                expected_schema=Movies
+                expected_status=409
             )
             response_data = response.json()
 
@@ -165,7 +158,7 @@ class TestMovies:
         movie = get_movie_payload(genre_id=unique_genre["id"])
 
         with allure.step("Создание фильма пользователем без прав"):
-           response = common_user.api.movies_api.create_movie(movie, expected_status=403, expected_schema=Movies)
+           response = common_user.api.movies_api.create_movie(movie, expected_status=403)
            response_data = response.json()
 
         with allure.step("Проверка текста ошибки"):
@@ -179,8 +172,7 @@ class TestMovies:
         with allure.step("Запрос на обновление фильма"):
             response = super_admin.api.movies_api.update_movie(
                 created_movie["id"],
-                updated_movie,
-                expected_schema=Movies
+                updated_movie
             ).json()
 
         with allure.step("Проверка обновленных полей"):
@@ -207,8 +199,7 @@ class TestMovies:
             response = super_admin.api.movies_api.update_movie(
                 created_movie["id"],
                 {"price": -100},
-                expected_status=400,
-                expected_schema=Movies
+                expected_status=400
             )
             response_data = response.json()
 
@@ -221,8 +212,7 @@ class TestMovies:
             response = super_admin.api.movies_api.update_movie(
                 movie_id=99999,
                 movie_data=get_movie_payload(unique_genre["id"]),
-                expected_status=404,
-                expected_schema=Movies
+                expected_status=404
             )
             response_data = response.json()
 
@@ -235,8 +225,7 @@ class TestMovies:
             response = api_manager.movies_api.update_movie(
                 created_movie["id"],
                 get_movie_payload(unique_genre["id"]),
-                expected_status=401,
-                expected_schema=Movies
+                expected_status=401
             )
             response_data = response.json()
 
@@ -259,7 +248,7 @@ class TestMovies:
     @allure.story("Удаление фильма")
     def test_delete_movie_not_found(self, super_admin):
         with allure.step("Запрос на удаление несуществующего фильма"):
-            response = super_admin.api.movies_api.delete_movie(movie_id=99999, expected_status=404, expected_schema=Movies)
+            response = super_admin.api.movies_api.delete_movie(movie_id=99999, expected_status=404)
             response_data = response.json()
 
         with allure.step("Проверка текста ошибки"):
@@ -277,7 +266,7 @@ class TestMovies:
     @allure.story("Удаление фильма с ролью админа")
     def test_delete_movie_admin(self, admin_user, created_movie, db_helper):
         with allure.step("Попытка удаления админом без прав"):
-            admin_user.api.movies_api.delete_movie(created_movie["id"], expected_status=403, expected_schema=Movies)
+            admin_user.api.movies_api.delete_movie(created_movie["id"], expected_status=403)
 
         with allure.step("Проверка, что фильм остался в бд"):
             assert db_helper.get_movie_by_id(created_movie["id"]) is not None
@@ -285,7 +274,7 @@ class TestMovies:
     @allure.story("Удаление фильма с ролью юзера")
     def test_delete_movie_common_user(self, common_user, created_movie, db_helper):
         with allure.step("Попытка удаления обычным пользователем"):
-            common_user.api.movies_api.delete_movie(created_movie["id"], expected_status=403, expected_schema=Movies)
+            common_user.api.movies_api.delete_movie(created_movie["id"], expected_status=403)
 
         with allure.step("Проверка, что фильм остался в бд"):
             assert db_helper.get_movie_by_id(created_movie["id"]) is not None

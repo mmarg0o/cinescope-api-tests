@@ -19,7 +19,7 @@ class CustomRequester:
         self.session.headers.update(self.base_headers)
         self.logger = logging.getLogger(__name__)
 
-    def send_request(self, method, endpoint, data=None, params=None, expected_status=200, need_logging=True, expected_schema=None, **kwargs):
+    def send_request(self, method, endpoint, data=None, params=None, expected_status=200, need_logging=True, success_model=None, error_model=ErrorResponse, **kwargs):
         url = f"{self.base_url}{endpoint}"
         
         if isinstance(data, BaseModel):
@@ -37,11 +37,13 @@ class CustomRequester:
                 f"Unexpected status code: {response.status_code}. Expected: {expected_status}"
             )
 
-        if expected_schema is not None:
-            if 200 <= response.status_code < 300:
-                expected_schema(**response.json())
-            else:
-                ErrorResponse(**response.json())
+        
+        if 200 <= response.status_code < 300:
+            if success_model is not None:
+                success_model(**response.json())
+        else:
+            if error_model is not None:
+                error_model(**response.json())
         return response
 
     def _update_session_headers(self, headers: dict):
