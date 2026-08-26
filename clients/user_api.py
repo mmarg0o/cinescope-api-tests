@@ -26,3 +26,19 @@ class UserApi(CustomRequester):
     def delete_users(self, *user_ids, **kwargs):
         for user_id in user_ids:
             self.delete_user(user_id, **kwargs)
+
+    def get_user(self, user_locator, expected_status=200, **kwargs):
+        return self.send_request(
+            method="GET",
+            endpoint=f"{USER}/{user_locator}",
+            expected_status=expected_status,
+            **kwargs
+        )
+
+    def create_user(self, user_data, expected_status=201):
+        return self.send_request(
+            method="POST",
+            endpoint=USER,
+            data=user_data,
+            expected_status=expected_status
+        )

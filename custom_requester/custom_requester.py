@@ -2,6 +2,9 @@ import json
 import logging
 import os
 import time
+from pydantic import BaseModel
+from constants.colors import RED, GREEN, RESET
+from models.base_models import ErrorResponse
 
 class CustomRequester:
     base_headers = {
@@ -16,8 +19,12 @@ class CustomRequester:
         self.session.headers.update(self.base_headers)
         self.logger = logging.getLogger(__name__)
 
-    def send_request(self, method, endpoint, data=None, params=None, expected_status=200, need_logging=True, **kwargs):
+    def send_request(self, method, endpoint, data=None, params=None, expected_status=200, need_logging=True, success_model=None, error_model=ErrorResponse, **kwargs):
         url = f"{self.base_url}{endpoint}"
+        
+        if isinstance(data, BaseModel):
+           data = json.loads(data.model_dump_json(exclude_unset=True))
+
         start_time = time.time()
         response = self.session.request(method, url, json=data, params=params, **kwargs)
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
@@ -25,10 +32,18 @@ class CustomRequester:
         if need_logging:
             self.log_request_and_response(response, elapsed_ms)
 
-        if response.status_code != expected_status:
+        if expected_status is not None and response.status_code != expected_status:
             raise ValueError(
                 f"Unexpected status code: {response.status_code}. Expected: {expected_status}"
             )
+
+        
+        if 200 <= response.status_code < 300:
+            if success_model is not None:
+                success_model(**response.json())
+        else:
+            if error_model is not None:
+                error_model(**response.json())
         return response
 
     def _update_session_headers(self, headers: dict):
@@ -41,9 +56,6 @@ class CustomRequester:
     def log_request_and_response(self, response, elapsed_ms=0):
             try:
                 request = response.request
-                GREEN = '\033[32m'
-                RED = '\033[31m'
-                RESET = '\033[0m'
 
                 full_test_name = f"pytest {os.environ.get('PYTEST_CURRENT_TEST', '').replace(' (call)', '')}"
                 headers = " \\\n".join([f"-H '{header}: {value}'" for header, value in request.headers.items()])

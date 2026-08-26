@@ -18,7 +18,7 @@ class AuthApi(CustomRequester):
             **kwargs
         )
 
-    def login_user(self, login_data, expected_status=201, **kwargs):
+    def login_user(self, login_data, expected_status=200, **kwargs):
         return self.send_request(
             method="POST",
             endpoint=LOGIN,
