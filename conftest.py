@@ -11,6 +11,10 @@ from models.base_models import TestUser
 from sqlalchemy.orm import Session
 from db_requester.db_client import get_db_session
 from db_requester.db_helpers import DBHelper
+from playwright.sync_api import Page
+from pages.register_page import CinescopeRegisterPage
+from pages.login_page import CinescopeLoginPage
+from pages.movie_page import CinescopeMoviePage
 
 @pytest.fixture
 def session():
@@ -188,3 +192,47 @@ def created_test_user(db_helper):
     yield user
     if db_helper.get_user_by_id(user.id):
         db_helper.delete_user(user)
+
+@pytest.fixture(scope="session")
+def browser(playwright):
+    browser = playwright.chromium.launch(headless=False)
+    yield browser
+    browser.close()
+
+@pytest.fixture
+def context(browser):
+    context = browser.new_context()
+    yield context
+    context.close()
+
+@pytest.fixture
+def page(context):
+    page = context.new_page()
+    yield page
+    page.close()
+
+@pytest.fixture
+def register_page(page: Page) -> CinescopeRegisterPage:
+    register_page = CinescopeRegisterPage(page)
+    register_page.open()
+    return register_page
+
+@pytest.fixture
+def login_page(page: Page) -> CinescopeLoginPage:
+    login_page = CinescopeLoginPage(page)
+    login_page.open()
+    return login_page
+
+@pytest.fixture
+def authenticated_page(page: Page, registered_user, test_user) -> Page:
+    login_page = CinescopeLoginPage(page)
+    login_page.open()
+    login_page.login(test_user.email, test_user.password)
+    return page
+
+
+@pytest.fixture
+def movie_page(authenticated_page: Page, created_movie) -> CinescopeMoviePage:
+    movie_page = CinescopeMoviePage(authenticated_page, created_movie["id"])
+    movie_page.open()
+    return movie_page
